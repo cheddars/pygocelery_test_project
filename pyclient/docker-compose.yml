@@ -1,0 +1,26 @@
+version: "3.3"
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.11.13-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_ERLANG_COOKIE: "RabbitMQ-My-Cookies"
+      RABBITMQ_DEFAULT_USER: "test"
+      RABBITMQ_DEFAULT_PASS: "1234"
+
+  redis:
+    image: redis:alpine
+    ports:
+    - "6379:6379"
+
+  celeryflower:
+    image: mher/flower:latest
+    command: [ "celery", "--broker=amqp://test:1234@rabbitmq:5672//", "--result-backend=redis://redis:6379", "flower", "--port=8888", "--broker_api=http://test:1234@rabbitmq:15672/api/" ]
+    ports:
+      - 8888:8888
+    depends_on:
+      - rabbitmq
+      - redis
