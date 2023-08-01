@@ -20,7 +20,7 @@ const (
 	redisHostEnvVar = "REDIS_HOST"
 	taskNameEnvVar  = "TASK_NAME"
 	smtpServer      = "localhost:1025"
-	taskName        = "users.registration.email"
+	taskName        = "tasks.add"
 )
 
 const fromEmail = "admin@foo.com"
@@ -71,7 +71,11 @@ func main() {
 		log.Fatal("failed to create celery client ", err)
 	}
 
-	sendEmail := func(registrationEvent string) {
+	sendEmail := func(num1 int, num2 int) {
+		fmt.Println("num1 : ", num1)
+		fmt.Println("num2 : ", num2)
+
+		registrationEvent := "test"
 		name := strings.Split(registrationEvent, ",")[0]
 		userEmail := strings.Split(registrationEvent, ",")[1]
 

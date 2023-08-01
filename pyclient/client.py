@@ -2,7 +2,8 @@ from celery import Celery
 
 app = Celery('tasks',
     broker='pyamqp://test:1234@localhost:5672//',
-    backend='redis://localhost:6379'
+    backend='redis://localhost:6379',
+    task_protocol=1
 )
 
 @app.task
