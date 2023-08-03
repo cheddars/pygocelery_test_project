@@ -23,3 +23,8 @@ Task01_Py ------------> Task02_Py -------------> Task03_Go
                                   \
                                    \--------> Task03_Py
 ```
+
+### 테스트 해보니...
+
+gocelery 는 amqp 의 기본 exchange(default) 설정되어 있고 다른 exchange 와 queue 를 사용하려면 수정을 좀 많이 해야할듯 하다
+기본 exchange 는 잘 동작되는게 확인된다

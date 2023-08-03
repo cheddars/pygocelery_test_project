@@ -2,49 +2,22 @@ package main
 
 import (
 	"fmt"
-	"github.com/hashicorp/go-uuid"
-	"log"
-	"math/rand"
-	"net/smtp"
-	"os"
-	"os/signal"
-	"strings"
-	"syscall"
-	"time"
-
 	"github.com/gocelery/gocelery"
 	"github.com/gomodule/redigo/redis"
+	"github.com/hashicorp/go-uuid"
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
 )
-
-const (
-	redisHostEnvVar = "REDIS_HOST"
-	taskNameEnvVar  = "TASK_NAME"
-	smtpServer      = "localhost:1025"
-	taskName        = "tasks.add"
-)
-
-const fromEmail = "admin@foo.com"
-
-const emailBodyTemplate = "Hi %s!!\n\nHere is your auto-generated password %s. Visit https://foobar.com/login to login update your password.\n\nCheers,\nTeam FooBar.\n\n[processed by %s]"
-
-const autogenPassword = "foobarbaz_foobarbaz"
-
-const emailHeaderTemplate = "From: %s" + "\n" +
-	"To: %s" + "\n" +
-	"Subject: Welcome to FooBar! Here are your login instructions\n\n" +
-	"%s"
 
 var (
-	redisHost string
+	taskName  = "tasks.task03_process"
+	redisHost = "localhost:6379"
 	workerID  string
 )
 
 func init() {
-	redisHost = os.Getenv(redisHostEnvVar)
-	if redisHost == "" {
-		redisHost = "localhost:6379"
-	}
-
 	rnd, _ := uuid.GenerateUUID()
 	workerID = "worker-" + rnd
 }
@@ -61,42 +34,26 @@ func main() {
 	}
 
 	celeryClient, err := gocelery.NewCeleryClient(
-		gocelery.NewAMQPCeleryBroker("amqp://test:1234@localhost:5672//"),
-		// gocelery.NewRedisBroker(redisPool),
+		NewAMQPCeleryBrokerWithExchangeAndQueue("amqp://test:1234@localhost:5672//", "task02_ex", "task02_queue"),
 		&gocelery.RedisCeleryBackend{Pool: redisPool},
-		1,
+		3,
 	)
 
 	if err != nil {
 		log.Fatal("failed to create celery client ", err)
 	}
 
-	sendEmail := func(num1 int, num2 int) {
-		fmt.Println("num1 : ", num1)
-		fmt.Println("num2 : ", num2)
-
-		registrationEvent := "test"
-		name := strings.Split(registrationEvent, ",")[0]
-		userEmail := strings.Split(registrationEvent, ",")[1]
-
-		fmt.Println("user registration info:", name, userEmail)
-
-		sleepFor := rand.Intn(9) + 1
-		time.Sleep(time.Duration(sleepFor) * time.Second)
-
-		body := fmt.Sprintf(emailBodyTemplate, name, autogenPassword, workerID)
-		msg := fmt.Sprintf(emailHeaderTemplate, fromEmail, userEmail, body)
-
-		err := smtp.SendMail(smtpServer, nil, "test@localhost", []string{"foo@bar.com"}, []byte(msg))
-		if err != nil {
-			log.Fatal("failed to send email - ", err)
-		}
-
-		fmt.Println("sent email to", userEmail)
-
+	task03_process := func(data map[string]interface{}) map[string]interface{} {
+		fmt.Println("data : ", data)
+		fmt.Println("data id : ", data["id"])
+		fmt.Println("data items : ", data["items"])
+		m := make(map[string]interface{})
+		m["id"] = data["id"]
+		m["worker"] = "task03_Go"
+		return m
 	}
 
-	celeryClient.Register(taskName, sendEmail)
+	celeryClient.Register(taskName, task03_process)
 
 	go func() {
 		celeryClient.StartWorker()
@@ -111,4 +68,37 @@ func main() {
 
 	celeryClient.StopWorker()
 	fmt.Println("celery worker stopped")
+}
+
+func NewAMQPCeleryBrokerWithExchangeAndQueue(host string, exchange string, queue string) *gocelery.AMQPCeleryBroker {
+	conn, channel := gocelery.NewAMQPConnection(host)
+	broker := &gocelery.AMQPCeleryBroker{
+		Channel:    channel,
+		Connection: conn,
+		Exchange:   NewAMQPExchange(exchange, "direct"),
+		Queue:      gocelery.NewAMQPQueue(queue),
+		Rate:       4,
+	}
+	if err := broker.CreateExchange(); err != nil {
+		panic(err)
+	}
+	if err := broker.CreateQueue(); err != nil {
+		panic(err)
+	}
+	if err := broker.Qos(broker.Rate, 0, false); err != nil {
+		panic(err)
+	}
+	if err := broker.StartConsumingChannel(); err != nil {
+		panic(err)
+	}
+	return broker
+}
+
+func NewAMQPExchange(name string, typeName string) *gocelery.AMQPExchange {
+	return &gocelery.AMQPExchange{
+		Name:       name,
+		Type:       typeName,
+		Durable:    true,
+		AutoDelete: false,
+	}
 }
