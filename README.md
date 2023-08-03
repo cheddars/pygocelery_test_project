@@ -17,8 +17,9 @@ Task01 -> Task02 -> Task03
 
 구현하려는 구조는 아래와 같다
 
+```
            protocol v2              protocol v1
 Task01_Py ------------> Task02_Py -------------> Task03_Go
                                   \
                                    \--------> Task03_Py
-                                   
+```
